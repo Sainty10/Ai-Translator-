@@ -1,0 +1,150 @@
+// ==================================================
+// Project Imports
+// ==================================================
+import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom/client';
+import * as THREE from 'three';
+
+// Ensure ChatManager is imported or available globally
+// import ChatManager from './ChatManager'; // Uncomment if necessary
+
+const AI_BEHAVIOR_DESCRIPTION = `
+You are an AI translator that specializes in interpreting what people really mean when they speak.
+When given a statement, analyze it and provide a humorous but insightful interpretation of what
+the person actually means. Keep responses concise and entertaining.
+`;
+
+class ChatAIClass {
+  constructor() {
+    if (typeof ChatManager === 'undefined') {
+      throw new Error("ChatManager is not defined. Ensure it's imported correctly.");
+    }
+    this.chatManager = new ChatManager(AI_BEHAVIOR_DESCRIPTION);
+  }
+
+  async getResponse(prompt) {
+    this.chatManager.addMessage('user', prompt);
+    const response = await this.chatManager.getCharacterResponse('classify');
+    this.chatManager.addMessage('assistant', response);
+    return response;
+  }
+}
+
+const App = () => {
+  const mountRef = useRef(null);
+  const [input, setInput] = useState('');
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [chat] = useState(() => new ChatAIClass());
+
+  useEffect(() => {
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    
+    mountRef.current?.appendChild(renderer.domElement);
+
+    // Resize Handling
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      camera.position.z = 5;
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    // Cube Setup
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ 
+      color: 0x00ffff, 
+      wireframe: true, 
+      transparent: true, 
+      opacity: 0.8 
+    });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // Animation Loop
+    const animate = () => {
+      requestAnimationFrame(animate);
+      cube.rotation.x += 0.01;
+      cube.rotation.y += 0.01;
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      mountRef.current?.removeChild(renderer.domElement);
+      geometry.dispose();
+      material.dispose();
+      renderer.dispose();
+    };
+  }, []);
+
+  const handleChat = async () => {
+    if (!input.trim()) return;
+    setLoading(true);
+    try {
+      const result = await chat.getResponse(input);
+      setResponse(result);
+    } catch (error) {
+      console.error('Error getting response:', error);
+      setResponse('Sorry, I had trouble interpreting that.');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#1a1a2e' }}>
+      <div ref={mountRef} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      <div style={{
+        position: 'absolute', width: '100%', height: '100%',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+        color: '#00ffff', fontFamily: "'Segoe UI', Roboto, sans-serif", textAlign: 'center'
+      }}>
+        <h1>AI Translator</h1>
+        <div style={{ width: '90%', maxWidth: '600px', background: 'rgba(255, 255, 255, 0.05)', padding: '20px', borderRadius: '10px' }}>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Write something here..."
+            style={{
+              width: '100%', minHeight: '80px', padding: '10px',
+              borderRadius: '5px', border: '1px solid rgba(0, 255, 255, 0.2)', background: '#111',
+              color: '#fff', fontSize: '16px'
+            }}
+          />
+          <button
+            onClick={handleChat}
+            style={{
+              width: '100%', padding: '10px', marginTop: '10px',
+              backgroundColor: '#00ffff', border: 'none', borderRadius: '5px',
+              cursor: 'pointer', color: '#000', fontWeight: 'bold'
+            }}
+            disabled={loading || !input.trim()}
+          >
+            {loading ? 'Interpreting...' : 'What Did They Mean?'}
+          </button>
+          {response && (
+            <div style={{ marginTop: '10px', padding: '10px', background: '#222', borderRadius: '5px' }}>
+              <h3>What They Actually Meant:</h3>
+              <p>{response}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const container = document.getElementById('renderDiv');
+if (container) {
+  ReactDOM.createRoot(container).render(<App />);
+} else {
+  console.error("Element with ID 'renderDiv' not found.");
+}
