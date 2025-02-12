@@ -147,4 +147,3 @@ if (container) {
   ReactDOM.createRoot(container).render(<App />);
 } else {
   console.error("Element with ID 'renderDiv' not found.");
-}
